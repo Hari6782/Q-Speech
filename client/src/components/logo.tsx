@@ -9,7 +9,7 @@ export function Logo() {
         transition={{ duration: 0.5 }}
       />
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="sound-wave w-8 h-8">
+        <div className="sound-wave w-8 h-8 flex items-end justify-center space-x-0.5">
           <motion.div
             className="bar bg-light"
             animate={{ height: ["10%", "80%", "10%"] }}
@@ -19,7 +19,7 @@ export function Logo() {
               repeat: Infinity,
               delay: 0
             }}
-            style={{ width: "2px", borderRadius: "1px", margin: "0 1px" }}
+            style={{ width: "2px", borderRadius: "1px" }}
           />
           <motion.div
             className="bar bg-light"
@@ -30,7 +30,7 @@ export function Logo() {
               repeat: Infinity,
               delay: 0.1
             }}
-            style={{ width: "2px", borderRadius: "1px", margin: "0 1px" }}
+            style={{ width: "2px", borderRadius: "1px" }}
           />
           <motion.div
             className="bar bg-light"
@@ -41,7 +41,7 @@ export function Logo() {
               repeat: Infinity,
               delay: 0.2
             }}
-            style={{ width: "2px", borderRadius: "1px", margin: "0 1px" }}
+            style={{ width: "2px", borderRadius: "1px" }}
           />
           <motion.div
             className="bar bg-light"
@@ -52,7 +52,7 @@ export function Logo() {
               repeat: Infinity,
               delay: 0.3
             }}
-            style={{ width: "2px", borderRadius: "1px", margin: "0 1px" }}
+            style={{ width: "2px", borderRadius: "1px" }}
           />
           <motion.div
             className="bar bg-light"
@@ -63,7 +63,7 @@ export function Logo() {
               repeat: Infinity,
               delay: 0.4
             }}
-            style={{ width: "2px", borderRadius: "1px", margin: "0 1px" }}
+            style={{ width: "2px", borderRadius: "1px" }}
           />
         </div>
       </div>
