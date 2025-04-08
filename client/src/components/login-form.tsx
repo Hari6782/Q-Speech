@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 
 // Form schema with validation
 const formSchema = z.object({
@@ -22,6 +23,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -41,13 +43,16 @@ export function LoginForm() {
         title: "Success",
         description: "You have successfully logged in",
       });
+      // Redirect to dashboard after successful login
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 1000);
     } catch (error) {
       toast({
         title: "Error",
         description: "Invalid email or password",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }

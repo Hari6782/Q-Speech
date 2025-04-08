@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 
 // Form schema with validation
 const formSchema = z.object({
@@ -27,6 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -51,15 +53,19 @@ export function RegisterForm() {
         description: "Your account has been created successfully",
       });
       
-      // Reset the form
+      // Reset the form and redirect to dashboard
       form.reset();
+      
+      // Redirect to dashboard after successful registration
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 1000);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "An error occurred during registration",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }
