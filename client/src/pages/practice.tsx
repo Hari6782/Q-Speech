@@ -137,9 +137,6 @@ export default function Practice() {
       const sentences = transcript.split(/[.!?]+/).filter(Boolean);
       const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
       
-      // Estimate body language score (would be calculated from pose detection in a real app)
-      const bodyLanguageScore = 75;
-      
       // Send transcript for AI analysis
       const response = await apiRequest('POST', '/api/analyze-speech', {
         transcript,
@@ -150,8 +147,24 @@ export default function Practice() {
         throw new Error("Speech analysis failed");
       }
       
-      // Extract analysis results
-      const { speechScore, confidenceScore, speechFeedback, confidenceFeedback, improvementTips } = response.analysis;
+      // New enhanced API returns a different response format
+      const analysis = response.analysis;
+      
+      // Extract scores from our enhanced analysis API
+      const speechScore = analysis.speechContent?.score || 0;
+      const confidenceScore = analysis.confidence?.score || 0;
+      
+      // Get body language score from API or use fallback value
+      const bodyLanguageScore = analysis.bodyLanguage?.score || 75;
+      
+      // Extract feedback
+      const speechFeedback = analysis.speechContent?.insights?.join(' ') || 
+                            "Analysis complete. Review detailed feedback below.";
+      const confidenceFeedback = analysis.confidence?.insights?.join(' ') || 
+                                "Practice regularly to improve your confidence.";
+      
+      // Get improvement tips from the API's action items
+      const improvementTips = analysis.topActionItems || [];
       
       // Combine all results
       const combinedResults = {
