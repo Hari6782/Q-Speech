@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Posedetector } from '@/components/pose-detector';
+import { apiRequest } from '@/lib/queryClient';
 
 // Status types
 type PracticeStatus = 'setup' | 'recording' | 'processing' | 'results';
@@ -554,6 +555,10 @@ function ResultsView({
   startOver: () => void, 
   goToDashboard: () => void 
 }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const { toast } = useToast();
+  
   // Helper function to determine score color
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-success';
@@ -561,6 +566,57 @@ function ResultsView({
     if (score >= 50) return 'text-yellow-500';
     return 'text-error';
   };
+  
+  // Save session to database
+  useEffect(() => {
+    const saveSession = async () => {
+      if (saved) return;
+      
+      setSaving(true);
+      try {
+        // Prepare session data
+        const sessionData = {
+          title: `Practice Session - ${new Date().toLocaleDateString()}`,
+          transcript: results.transcript,
+          duration: results.duration,
+          speechScore: Math.round(results.scores.speech),
+          bodyLanguageScore: Math.round(results.scores.bodyLanguage),
+          confidenceScore: Math.round(results.scores.confidence),
+          totalScore: Math.round(results.scores.total),
+          feedback: results.suggestions.join('\n'),
+          metrics: {
+            vocabulary: results.wordCount > 50 ? 80 : 60,
+            grammar: 75,
+            fluency: 100 - results.fillerCount * 5,
+            posture: 70,
+            gestures: 75,
+            eyeContact: 80,
+            energy: 85,
+            clarity: 75
+          }
+        };
+        
+        // Save to the server
+        await apiRequest('POST', '/api/speech-sessions', sessionData);
+        setSaved(true);
+        toast({
+          title: "Session Saved",
+          description: "Your practice session has been saved to your history.",
+        });
+      } catch (error) {
+        console.error("Error saving speech session:", error);
+        toast({
+          title: "Save Error",
+          description: "Failed to save your practice session. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setSaving(false);
+      }
+    };
+    
+    saveSession();
+  }, [results, saved, toast]);
 
   return (
     <div className="max-w-4xl mx-auto">

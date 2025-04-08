@@ -127,7 +127,11 @@ function HistoryTab() {
       setIsLoading(true);
       try {
         const response = await apiRequest("GET", "/api/speech-sessions");
-        setSessions(response.sessions || []);
+        if (response && typeof response === 'object' && 'sessions' in response) {
+          setSessions(response.sessions || []);
+        } else {
+          setSessions([]); // Set empty array as fallback
+        }
       } catch (error) {
         console.error("Error fetching speech sessions:", error);
         toast({
