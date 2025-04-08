@@ -193,13 +193,21 @@ export default function Practice() {
       
       // New enhanced API returns a different response format
       const analysis = response.analysis;
+      const provider = response.provider || 'openai';
       
-      // Show notification if we're using the fallback system due to API quota limits
-      if (response.usingFallback) {
-        console.log("Using fallback analysis system due to API limitations");
+      // Show notification about which AI system is providing the analysis
+      if (provider === 'gemini') {
+        console.log("Using Gemini AI analysis as fallback");
+        toast({
+          title: "Using Gemini AI Analysis",
+          description: "Our primary AI system is currently at capacity. We're using Google's Gemini AI for high-quality analysis instead.",
+          variant: "default"
+        });
+      } else if (provider === 'fallback') {
+        console.log("Using basic fallback analysis system due to API limitations");
         toast({
           title: "Using Basic Analysis",
-          description: "Our advanced AI analysis is currently unavailable. We're providing basic analysis instead.",
+          description: "Our advanced AI systems are currently unavailable. We're providing basic analysis instead.",
           variant: "default"
         });
       }
@@ -228,6 +236,7 @@ export default function Practice() {
         wordsPerMinute,
         avgSentenceLength,
         duration: elapsedTime,
+        analysisProvider: provider, // Include which AI system performed the analysis
         scores: {
           speech: speechScore,
           bodyLanguage: bodyLanguageScore,
@@ -367,6 +376,7 @@ export default function Practice() {
       wordsPerMinute,
       avgSentenceLength,
       duration: elapsedTime,
+      analysisProvider: 'client', // Mark this as client-side fallback analysis
       scores: {
         speech: speechScore,
         bodyLanguage: bodyLanguageScore,

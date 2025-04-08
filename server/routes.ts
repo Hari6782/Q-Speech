@@ -6,6 +6,7 @@ import { log } from "./vite";
 import { analyzeTranscript } from "./services/openai-service";
 import { transcribeAudio, analyzeDelivery } from "./services/speech/whisper-service";
 import { analyzeGrammarAndLanguage } from "./services/language/grammar-service";
+import { analyzeTranscriptWithGemini } from "./services/gemini-service";
 
 // Define interface for OpenAI errors to handle quota limits
 interface OpenAIError {
@@ -15,6 +16,13 @@ interface OpenAIError {
     type?: string;
     code?: string;
   };
+  code?: string;
+}
+
+// Define interface for Gemini errors to handle quota limits
+interface GeminiError {
+  status?: number;
+  message?: string;
   code?: string;
 }
 
@@ -262,7 +270,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         return res.status(200).json({
           success: true,
-          analysis
+          analysis,
+          provider: "openai"
         });
       } catch (error) {
         const openAiError = error as OpenAIError;
@@ -274,16 +283,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (openAiError.error?.type === 'insufficient_quota') ||
           (openAiError.code === 'insufficient_quota') ||
           (typeof openAiError.message === 'string' && openAiError.message.includes('quota'));
+        
         if (isRateLimitOrQuotaError) {
-          // Use fallback analysis that doesn't require OpenAI
-          log("OpenAI quota exceeded, using fallback analysis", "server");
-          const fallbackAnalysis = generateFallbackAnalysis(transcript, duration, poseData);
+          log("OpenAI quota exceeded, trying Gemini as fallback", "server");
           
-          return res.status(200).json({ 
-            success: true, 
-            analysis: fallbackAnalysis,
-            usingFallback: true
-          });
+          try {
+            // Try using Gemini API as a secondary option
+            const geminiAnalysis = await analyzeTranscriptWithGemini(transcript, duration, poseData);
+            
+            return res.status(200).json({ 
+              success: true, 
+              analysis: geminiAnalysis,
+              provider: "gemini" 
+            });
+          } catch (geminiError) {
+            const error = geminiError as GeminiError;
+            console.error("Gemini API error:", error);
+            
+            // If Gemini also fails, use our basic fallback analysis
+            log("Gemini API failed, using basic fallback analysis", "server");
+            const basicFallbackAnalysis = generateFallbackAnalysis(transcript, duration, poseData);
+            
+            return res.status(200).json({ 
+              success: true, 
+              analysis: basicFallbackAnalysis,
+              provider: "fallback"
+            });
+          }
         }
         
         // Rethrow for other types of errors

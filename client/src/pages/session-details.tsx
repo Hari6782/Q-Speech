@@ -102,6 +102,24 @@ export default function SessionDetails() {
                 <div>
                   <h1 className="text-3xl font-bold">{session.title}</h1>
                   <p className="text-light-darker mt-1">{formatDate(session.createdAt)}</p>
+                  
+                  {/* AI Provider Badge - if available */}
+                  {session.metrics?.analysisProvider && (
+                    <div className="mt-2">
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                        session.metrics.analysisProvider === 'openai' ? 'bg-green-900/50 text-green-400' :
+                        session.metrics.analysisProvider === 'gemini' ? 'bg-blue-900/50 text-blue-400' :
+                        'bg-yellow-900/50 text-yellow-400'
+                      }`}>
+                        {session.metrics.analysisProvider === 'openai' && 'OpenAI Analysis'}
+                        {session.metrics.analysisProvider === 'gemini' && 'Gemini AI Analysis'}
+                        {session.metrics.analysisProvider === 'fallback' && 'Basic Analysis'}
+                        {session.metrics.analysisProvider === 'client' && 'Client-side Analysis'}
+                        {!['openai', 'gemini', 'fallback', 'client'].includes(session.metrics.analysisProvider) && 
+                          session.metrics.analysisProvider}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-light-darker">
