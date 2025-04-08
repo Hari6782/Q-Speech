@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loginUserSchema, insertUserSchema } from "@shared/schema";
@@ -79,6 +79,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Registration error:", error);
       return res.status(400).json({
         message: "Invalid registration data"
+      });
+    }
+  });
+
+  // Get user profile endpoint
+  app.get("/api/user/profile", async (req, res) => {
+    try {
+      // Get user ID from session (in a real app with authentication)
+      // For demo purposes, we'll return the last registered user
+      // In a real app, you would use req.session.userId or similar
+      
+      // Get users from storage (in a real app, this would be more efficient)
+      const users = await storage.getAllUsers();
+      
+      if (users.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: "No users found" 
+        });
+      }
+      
+      // Get the most recently created user for demo
+      const currentUser = users[users.length - 1];
+      
+      // Return user data without password
+      return res.status(200).json({
+        id: currentUser.id,
+        username: currentUser.username,
+        email: currentUser.email,
+        createdAt: currentUser.createdAt || new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while retrieving profile"
+      });
+    }
+  });
+  
+  // Speech Session API endpoints
+  
+  // Get user's speech sessions
+  app.get("/api/speech-sessions", async (req, res) => {
+    try {
+      // For demo purposes, we'll use the most recent user
+      const users = await storage.getAllUsers();
+      
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No users found"
+        });
+      }
+      
+      const currentUser = users[users.length - 1];
+      const sessions = await storage.getUserSpeechSessions(currentUser.id);
+      
+      return res.status(200).json({
+        success: true,
+        sessions
+      });
+    } catch (error) {
+      console.error("Error fetching speech sessions:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while retrieving speech sessions"
+      });
+    }
+  });
+  
+  // Get a specific speech session
+  app.get("/api/speech-sessions/:id", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      if (isNaN(sessionId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid session ID"
+        });
+      }
+      
+      const session = await storage.getSpeechSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          message: "Speech session not found"
+        });
+      }
+      
+      return res.status(200).json({
+        success: true,
+        session
+      });
+    } catch (error) {
+      console.error("Error fetching speech session:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while retrieving speech session"
+      });
+    }
+  });
+  
+  // Create a new speech session
+  app.post("/api/speech-sessions", async (req, res) => {
+    try {
+      // For demo purposes, we'll use the most recent user
+      const users = await storage.getAllUsers();
+      
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No users found"
+        });
+      }
+      
+      const currentUser = users[users.length - 1];
+      
+      // Add the user ID to the session data
+      const sessionData = {
+        ...req.body,
+        userId: currentUser.id
+      };
+      
+      const newSession = await storage.createSpeechSession(sessionData);
+      
+      return res.status(201).json({
+        success: true,
+        message: "Speech session created successfully",
+        session: newSession
+      });
+    } catch (error) {
+      console.error("Error creating speech session:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while creating speech session"
       });
     }
   });

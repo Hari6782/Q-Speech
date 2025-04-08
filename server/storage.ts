@@ -1,19 +1,28 @@
-import { users, type User, type InsertUser } from "@shared/schema";
+import { users, speechSessions, type User, type InsertUser, type SpeechSession, type InsertSpeechSession } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
 
 export interface IStorage {
+  // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  
+  // Speech session methods
+  createSpeechSession(session: InsertSpeechSession): Promise<SpeechSession>;
+  getSpeechSession(id: number): Promise<SpeechSession | undefined>;
+  getUserSpeechSessions(userId: number): Promise<SpeechSession[]>;
+  getRecentSpeechSessions(limit?: number): Promise<SpeechSession[]>;
 }
 
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -35,6 +44,43 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+  
+  // Speech session methods
+  async createSpeechSession(session: InsertSpeechSession): Promise<SpeechSession> {
+    const [result] = await db
+      .insert(speechSessions)
+      .values(session)
+      .returning();
+    return result;
+  }
+  
+  async getSpeechSession(id: number): Promise<SpeechSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(speechSessions)
+      .where(eq(speechSessions.id, id));
+    return session || undefined;
+  }
+  
+  async getUserSpeechSessions(userId: number): Promise<SpeechSession[]> {
+    return await db
+      .select()
+      .from(speechSessions)
+      .where(eq(speechSessions.userId, userId))
+      .orderBy(desc(speechSessions.createdAt));
+  }
+  
+  async getRecentSpeechSessions(limit: number = 10): Promise<SpeechSession[]> {
+    return await db
+      .select()
+      .from(speechSessions)
+      .orderBy(desc(speechSessions.createdAt))
+      .limit(limit);
   }
 }
 
