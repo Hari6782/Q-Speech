@@ -7,6 +7,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Practice from "@/pages/practice";
+import SessionDetails from "@/pages/session-details";
 
 function Router() {
   return (
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/practice" component={Practice} />
+      <Route path="/practice/details/:id" component={SessionDetails} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

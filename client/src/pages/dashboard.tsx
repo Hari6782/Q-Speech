@@ -200,7 +200,12 @@ function HistoryTab() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <Button variant="ghost" size="sm" className="text-primary">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-primary"
+                        onClick={() => window.location.href = `/practice/details/${session.id}`}
+                      >
                         View Details
                       </Button>
                     </td>
