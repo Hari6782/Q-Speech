@@ -4,13 +4,24 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function analyzeTranscript(transcript: string, duration: number) {
   // Don't attempt to analyze empty or very short transcripts
-  if (!transcript || transcript.length < 10) {
+  if (!transcript || transcript.trim() === '') {
     return {
-      speechScore: 60,
-      confidenceScore: 60,
-      speechFeedback: "The transcript was too short to provide detailed analysis.",
+      speechScore: 0,
+      confidenceScore: 0,
+      speechFeedback: "No speech detected. Please try again and make sure your microphone is working properly.",
+      confidenceFeedback: "No speech data available for confidence assessment.",
+      improvementTips: "Make sure your microphone is properly connected and speak clearly into it during your practice sessions."
+    };
+  }
+  
+  // Very minimal transcript - not enough for meaningful analysis
+  if (transcript.length < 10) {
+    return {
+      speechScore: 20,
+      confidenceScore: 20,
+      speechFeedback: "The transcript was too short to provide detailed analysis. Please speak more for a thorough evaluation.",
       confidenceFeedback: "Unable to assess confidence from the limited speech sample.",
-      improvementTips: "Please speak more during your practice sessions for better analysis."
+      improvementTips: "Please speak more during your practice sessions for better analysis. Aim for at least 30 seconds of continuous speech."
     };
   }
 

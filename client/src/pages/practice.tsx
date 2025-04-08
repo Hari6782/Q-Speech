@@ -195,8 +195,62 @@ export default function Practice() {
 
   // Basic analysis as a fallback
   const analyzeResultsBasic = (text: string) => {
+    // Handle empty transcript
+    if (!text || text.trim() === '') {
+      return {
+        transcript: '',
+        wordCount: 0,
+        fillerCount: 0,
+        wordsPerMinute: 0,
+        avgSentenceLength: 0,
+        duration: elapsedTime,
+        scores: {
+          speech: 0,
+          bodyLanguage: 0,
+          confidence: 0,
+          total: 0
+        },
+        feedback: {
+          speech: "No speech detected. Please try again and make sure your microphone is working properly.",
+          confidence: "No speech data available for confidence assessment."
+        },
+        suggestions: [
+          "Make sure your microphone is properly connected and speak clearly into it during your practice sessions.",
+          "Check your browser permissions to ensure microphone access is allowed.",
+          "Try speaking louder and more clearly in your next practice session."
+        ]
+      };
+    }
+  
     // Basic speech analysis
     const wordCount = text.split(' ').filter(word => word.trim() !== '').length;
+    
+    // Very short transcript handling
+    if (wordCount < 5) {
+      return {
+        transcript: text,
+        wordCount,
+        fillerCount: 0,
+        wordsPerMinute: wordCount / (elapsedTime / 60),
+        avgSentenceLength: 0,
+        duration: elapsedTime,
+        scores: {
+          speech: 20,
+          bodyLanguage: 20,
+          confidence: 20,
+          total: 20
+        },
+        feedback: {
+          speech: "The transcript was too short to provide meaningful analysis. Please try speaking more for a thorough evaluation.",
+          confidence: "Unable to assess confidence from such a limited speech sample."
+        },
+        suggestions: [
+          "Aim for at least 30 seconds of continuous speech for a meaningful analysis.",
+          "Prepare some talking points before starting your practice session.",
+          "Try practicing a short prepared speech to get comfortable with the system."
+        ]
+      };
+    }
     
     // Simple time check (speaking too fast or too slow)
     const wordsPerMinute = wordCount / (elapsedTime / 60);
@@ -227,8 +281,10 @@ export default function Practice() {
       + (avgSentenceLength > 5 && avgSentenceLength < 20 ? 5 : -5)
     ));
     
-    const bodyLanguageScore = 75; // Placeholder - would be calculated from pose detection
-    const confidenceScore = 80; // Placeholder - would be calculated from voice analysis
+    // Adjust body language and confidence scores based on speech duration
+    const durationFactor = Math.min(1, elapsedTime / 30); // Scale up to 30 seconds
+    const bodyLanguageScore = Math.round(75 * durationFactor); // Scale based on duration
+    const confidenceScore = Math.round(80 * durationFactor); // Scale based on duration
     
     // Calculate total score
     const totalScore = (
