@@ -7,6 +7,17 @@ import { analyzeTranscript } from "./services/openai-service";
 import { transcribeAudio, analyzeDelivery } from "./services/speech/whisper-service";
 import { analyzeGrammarAndLanguage } from "./services/language/grammar-service";
 
+// Define interface for OpenAI errors to handle quota limits
+interface OpenAIError {
+  status?: number;
+  message?: string;
+  error?: {
+    type?: string;
+    code?: string;
+  };
+  code?: string;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   app.post("/api/login", async (req, res) => {
@@ -224,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Analyze speech transcript with OpenAI
+  // Analyze speech transcript with OpenAI and fallback if API quota is exceeded
   app.post("/api/analyze-speech", async (req, res) => {
     try {
       const { transcript, duration, poseData } = req.body;
@@ -245,21 +256,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       log(`Analyzing speech transcript (${transcript.length} chars, ${duration}s)`, "server");
       
-      // Use comprehensive analysis service
-      const analysis = await analyzeTranscript(transcript, duration, poseData);
-      
-      return res.status(200).json({
-        success: true,
-        analysis
-      });
+      try {
+        // Try to use comprehensive analysis service with OpenAI
+        const analysis = await analyzeTranscript(transcript, duration, poseData);
+        
+        return res.status(200).json({
+          success: true,
+          analysis
+        });
+      } catch (error) {
+        const openAiError = error as OpenAIError;
+        console.error("OpenAI API error:", openAiError);
+        
+        // Check if this is a rate limit or quota error
+        const isRateLimitOrQuotaError = 
+          (openAiError.status === 429) || 
+          (openAiError.error?.type === 'insufficient_quota') ||
+          (openAiError.code === 'insufficient_quota') ||
+          (typeof openAiError.message === 'string' && openAiError.message.includes('quota'));
+        if (isRateLimitOrQuotaError) {
+          // Use fallback analysis that doesn't require OpenAI
+          log("OpenAI quota exceeded, using fallback analysis", "server");
+          const fallbackAnalysis = generateFallbackAnalysis(transcript, duration, poseData);
+          
+          return res.status(200).json({ 
+            success: true, 
+            analysis: fallbackAnalysis,
+            usingFallback: true
+          });
+        }
+        
+        // Rethrow for other types of errors
+        throw openAiError;
+      }
     } catch (error) {
       console.error("Error analyzing speech:", error);
       return res.status(500).json({
         success: false,
-        message: "Server error while analyzing speech"
+        message: "Unable to perform AI analysis at this time",
+        error: "Error occurred during structure analysis"
       });
     }
   });
+  
+  // Fallback analysis function that doesn't require OpenAI
+  function generateFallbackAnalysis(transcript: string, duration: number, poseData: any) {
+    // Basic statistics
+    const words = transcript.split(/\s+/).filter(word => word.trim().length > 0);
+    const wordCount = words.length;
+    const wordsPerMinute = wordCount / (duration / 60);
+    
+    // Count filler words
+    const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally'];
+    const fillerCount = fillerWords.reduce((count, filler) => {
+      const regex = new RegExp(`\\b${filler}\\b`, 'gi');
+      const matches = transcript.match(regex) || [];
+      return count + matches.length;
+    }, 0);
+    
+    // Calculate sentences
+    const sentences = transcript.split(/[.!?]+/).filter(Boolean);
+    const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
+    
+    // Calculate pose metrics if available
+    let posture = 70;
+    let gestures = 65;
+    let movement = 75;
+    
+    if (poseData) {
+      posture = poseData.posture || posture;
+      gestures = poseData.gestures || gestures;
+      movement = poseData.movement || movement;
+    }
+    
+    // Calculate speech score
+    const speechScore = Math.min(100, Math.max(0, 
+      // Base score
+      70
+      // Word count penalty if very low
+      + (wordCount < 20 ? -15 : wordCount > 100 ? 10 : 0)
+      // Words per minute penalty if too fast/slow
+      + (wordsPerMinute < 100 ? -5 : (wordsPerMinute > 180 ? -10 : 5))
+      // Filler words penalty
+      - (fillerCount * 2)
+      // Sentence length bonus/penalty
+      + (avgSentenceLength > 5 && avgSentenceLength < 20 ? 5 : -5)
+    ));
+    
+    // Create grammar analysis feedback
+    let grammarFeedback = 'Your speech was analyzed with our basic analytics system.';
+    
+    if (wordCount < 20) {
+      grammarFeedback += ' Your speech was quite short, which makes detailed analysis difficult. Try speaking for at least 30 seconds for a more thorough evaluation.';
+    } else {
+      if (wordsPerMinute > 180) {
+        grammarFeedback += ' Your speaking pace was quite fast. Consider slowing down to improve clarity and comprehension.';
+      } else if (wordsPerMinute < 100) {
+        grammarFeedback += ' Your speaking pace was somewhat slow. A slightly faster pace might help maintain audience engagement.';
+      } else {
+        grammarFeedback += ' Your speaking pace was good, making it easy for listeners to follow along.';
+      }
+      
+      if (fillerCount > 5) {
+        grammarFeedback += ` You used filler words like "um" and "uh" ${fillerCount} times. Reducing these would make your speech sound more polished.`;
+      } else if (fillerCount > 0) {
+        grammarFeedback += ' You used a few filler words, but not enough to significantly impact your speech quality.';
+      } else {
+        grammarFeedback += ' You did a great job avoiding filler words, which made your speech sound more professional.';
+      }
+    }
+    
+    // Create body language feedback
+    let bodyLanguageFeedback = 'Based on the video analysis';
+    
+    if (posture > 80) {
+      bodyLanguageFeedback += ', your posture was excellent, which conveys confidence and authority.';
+    } else if (posture > 60) {
+      bodyLanguageFeedback += ', your posture was generally good but could be improved for a more commanding presence.';
+    } else {
+      bodyLanguageFeedback += ', improving your posture would significantly enhance your speaking presence.';
+    }
+    
+    if (gestures > 80) {
+      bodyLanguageFeedback += ' Your use of gestures was natural and effective in emphasizing key points.';
+    } else if (gestures > 60) {
+      bodyLanguageFeedback += ' Consider using more purposeful hand gestures to emphasize important points.';
+    } else {
+      bodyLanguageFeedback += ' Adding more hand gestures would help engage your audience and highlight key points.';
+    }
+    
+    // Create confidence feedback
+    let confidenceFeedback = 'In terms of confidence, ';
+    if (posture > 70 && wordsPerMinute > 120) {
+      confidenceFeedback += 'you presented with a good level of energy and assurance.';
+    } else if (posture > 60 || wordsPerMinute > 110) {
+      confidenceFeedback += 'you showed moderate confidence, but there\'s room for improvement.';
+    } else {
+      confidenceFeedback += 'working on your speaking confidence would make your presentation more impactful.';
+    }
+    
+    // Create suggestions
+    const suggestions = [];
+    
+    if (wordCount < 50) {
+      suggestions.push('Prepare more content to expand your speaking time and develop your ideas more fully.');
+    }
+    
+    if (wordsPerMinute > 180) {
+      suggestions.push('Practice speaking more slowly to improve clarity and give listeners time to process your message.');
+    } else if (wordsPerMinute < 100) {
+      suggestions.push('Try increasing your speaking pace slightly to maintain audience engagement.');
+    }
+    
+    if (fillerCount > 5) {
+      suggestions.push('Record yourself speaking and practice reducing filler words like "um" and "uh".');
+    }
+    
+    if (posture < 70) {
+      suggestions.push('Practice speaking with shoulders back and spine straight to project more confidence.');
+    }
+    
+    if (gestures < 70) {
+      suggestions.push('Incorporate more natural hand gestures to emphasize key points in your presentation.');
+    }
+    
+    suggestions.push('Continue practicing regularly to build confidence and speaking skills.');
+    
+    // Create the analysis object structure that matches the OpenAI version
+    return {
+      speechContent: {
+        score: speechScore,
+        grammarAndLanguage: {
+          score: speechScore,
+          fillerWords: {
+            count: fillerCount,
+            rate: (fillerCount / wordCount) * 100
+          },
+          vocabularyRichness: 65,
+          readabilityScore: 70,
+          sentenceStructure: {
+            averageLength: avgSentenceLength,
+            varietyScore: 65
+          }
+        },
+        structure: {
+          score: 65,
+          hasIntroduction: wordCount > 30,
+          hasConclusion: wordCount > 50,
+          logicalFlow: 70,
+          cohesiveness: 70
+        },
+        insights: [grammarFeedback]
+      },
+      bodyLanguage: {
+        score: (posture + gestures + movement) / 3,
+        posture: posture,
+        gestures: gestures,
+        movement: movement,
+        facialExpressions: 70,
+        eyeContact: 75,
+        insights: [bodyLanguageFeedback]
+      },
+      confidence: {
+        score: (posture + 70 + 75) / 3, // Average of posture, voice modulation, and presence
+        voiceModulation: 70,
+        pacing: wordsPerMinute > 120 ? 75 : 65,
+        presence: 75,
+        recovery: 80,
+        insights: [confidenceFeedback]
+      },
+      overallScore: (speechScore * 0.4) + ((posture + gestures + movement) / 3 * 0.4) + (75 * 0.2),
+      summary: "Speech analysis complete. Your delivery showed some strengths and areas for improvement.",
+      topActionItems: suggestions
+    };
+  }
 
   // Transcribe audio with Whisper API
   app.post("/api/transcribe-audio", async (req, res) => {

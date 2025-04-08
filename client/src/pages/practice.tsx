@@ -194,6 +194,16 @@ export default function Practice() {
       // New enhanced API returns a different response format
       const analysis = response.analysis;
       
+      // Show notification if we're using the fallback system due to API quota limits
+      if (response.usingFallback) {
+        console.log("Using fallback analysis system due to API limitations");
+        toast({
+          title: "Using Basic Analysis",
+          description: "Our advanced AI analysis is currently unavailable. We're providing basic analysis instead.",
+          variant: "default"
+        });
+      }
+      
       // Extract scores from our enhanced analysis API
       const speechScore = analysis.speechContent?.score || 0;
       const confidenceScore = analysis.confidence?.score || 0;
