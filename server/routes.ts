@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { loginUserSchema, insertUserSchema } from "@shared/schema";
 import { log } from "./vite";
 import { analyzeTranscript } from "./services/openai-service";
+import { transcribeAudio, analyzeDelivery } from "./services/speech/whisper-service";
+import { analyzeGrammarAndLanguage } from "./services/language/grammar-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
@@ -225,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze speech transcript with OpenAI
   app.post("/api/analyze-speech", async (req, res) => {
     try {
-      const { transcript, duration } = req.body;
+      const { transcript, duration, poseData } = req.body;
       
       if (!transcript || typeof transcript !== 'string') {
         return res.status(400).json({
@@ -243,8 +245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       log(`Analyzing speech transcript (${transcript.length} chars, ${duration}s)`, "server");
       
-      // Use OpenAI to analyze the transcript
-      const analysis = await analyzeTranscript(transcript, duration);
+      // Use comprehensive analysis service
+      const analysis = await analyzeTranscript(transcript, duration, poseData);
       
       return res.status(200).json({
         success: true,
@@ -255,6 +257,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({
         success: false,
         message: "Server error while analyzing speech"
+      });
+    }
+  });
+
+  // Transcribe audio with Whisper API
+  app.post("/api/transcribe-audio", async (req, res) => {
+    try {
+      if (!req.body || !req.body.audio) {
+        return res.status(400).json({
+          success: false,
+          message: "Audio data is required"
+        });
+      }
+      
+      // Extract base64 audio data and convert to buffer
+      const base64Audio = req.body.audio.replace(/^data:audio\/\w+;base64,/, "");
+      const audioBuffer = Buffer.from(base64Audio, 'base64');
+      const audioFormat = req.body.format || "mp3";
+      
+      log(`Transcribing audio data (${audioBuffer.length} bytes)`, "server");
+      
+      // Use Whisper to transcribe the audio
+      const transcription = await transcribeAudio(audioBuffer, audioFormat);
+      
+      // If we have segments, analyze the delivery (pace, clarity, etc.)
+      let deliveryAnalysis = null;
+      if (transcription.segments && transcription.segments.length > 0) {
+        deliveryAnalysis = analyzeDelivery(transcription.segments);
+      }
+      
+      return res.status(200).json({
+        success: true,
+        transcription: transcription.text,
+        segments: transcription.segments,
+        language: transcription.language,
+        delivery: deliveryAnalysis
+      });
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while transcribing audio"
+      });
+    }
+  });
+  
+  // Analyze grammar and language separately
+  app.post("/api/analyze-grammar", async (req, res) => {
+    try {
+      const { transcript } = req.body;
+      
+      if (!transcript || typeof transcript !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: "Transcript is required and must be a string"
+        });
+      }
+      
+      log(`Analyzing grammar for text (${transcript.length} chars)`, "server");
+      
+      // Use language analysis service
+      const analysis = await analyzeGrammarAndLanguage(transcript);
+      
+      return res.status(200).json({
+        success: true,
+        analysis
+      });
+    } catch (error) {
+      console.error("Error analyzing grammar:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while analyzing grammar"
       });
     }
   });
