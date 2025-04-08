@@ -30,7 +30,26 @@ export default function Practice() {
     listening,
     resetTranscript,
     browserSupportsSpeechRecognition
-  } = useSpeechRecognition();
+  } = useSpeechRecognition({
+    transcribing: true,
+    clearTranscriptOnListen: true,
+    commands: []
+  });
+  
+  // Debug speech recognition status
+  useEffect(() => {
+    console.log("Speech recognition status - listening:", listening);
+    console.log("Current transcript:", transcript);
+    console.log("Browser supports speech recognition:", browserSupportsSpeechRecognition);
+    
+    // Get recognition instance for debugging
+    const recognition = SpeechRecognition.getRecognition();
+    console.log("Recognition instance:", recognition);
+    
+    if (!browserSupportsSpeechRecognition) {
+      console.error("This browser doesn't support speech recognition");
+    }
+  }, [listening, transcript, browserSupportsSpeechRecognition]);
 
   useEffect(() => {
     // Cleanup timer on unmount
@@ -67,18 +86,41 @@ export default function Practice() {
   const toggleMic = async () => {
     try {
       if (!micEnabled) {
-        // Start listening when mic is enabled
-        await SpeechRecognition.startListening({ continuous: true });
-        setMicEnabled(true);
+        // Test microphone access before starting recognition
+        console.log("Testing microphone access...");
+        
+        try {
+          // Try to get audio permission first
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log("Microphone access granted:", stream.getAudioTracks());
+          
+          // Start Web Speech API listening
+          console.log("Starting speech recognition...");
+          await SpeechRecognition.startListening({ continuous: true });
+          console.log("Speech recognition started successfully");
+          
+          setMicEnabled(true);
+          
+          // Show success toast
+          toast({
+            title: "Microphone Enabled",
+            description: "Your microphone is working. Start speaking to see transcription.",
+          });
+        } catch (micError) {
+          console.error("Microphone access error:", micError);
+          throw micError;
+        }
       } else {
         // Stop listening when mic is disabled
+        console.log("Stopping speech recognition...");
         SpeechRecognition.stopListening();
         setMicEnabled(false);
       }
     } catch (error) {
+      console.error("Toggle mic error:", error);
       toast({
         title: "Microphone Error",
-        description: "Could not access your microphone. Please check permissions.",
+        description: "Could not access your microphone. Please check browser permissions.",
         variant: "destructive"
       });
     }
@@ -454,6 +496,12 @@ function SetupView({
   startPractice: () => void,
   webcamRef: React.RefObject<Webcam>
 }) {
+  const [showDebug, setShowDebug] = useState(false);
+  const {
+    transcript,
+    listening,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="text-3xl font-bold mb-6 text-center">Prepare for Your Practice Session</h2>
@@ -549,6 +597,56 @@ function SetupView({
             ? "Please enable both camera and microphone to continue" 
             : "Everything is ready! Click the button to begin."}
         </p>
+        
+        {/* Debugging Panel - click to show/hide */}
+        <div className="mt-8">
+          <button 
+            onClick={() => setShowDebug(!showDebug)} 
+            className="text-sm text-light-darker hover:text-primary underline"
+          >
+            {showDebug ? "Hide" : "Show"} Microphone Debugging Info
+          </button>
+          
+          {showDebug && (
+            <div className="mt-4 bg-dark-deeper text-left p-4 rounded-lg border border-dark-lighter">
+              <h4 className="font-medium mb-2">Speech Recognition Debug Info:</h4>
+              <ul className="space-y-1 text-sm">
+                <li><strong>Browser Support:</strong> {browserSupportsSpeechRecognition ? "✅ Yes" : "❌ No"}</li>
+                <li><strong>Listening Status:</strong> {listening ? "✅ Active" : "❌ Inactive"}</li>
+                <li><strong>Mic Permission:</strong> {micEnabled ? "✅ Granted" : "❌ Not granted"}</li>
+                <li><strong>Current Transcript:</strong> "{transcript || "(empty)"}"</li>
+              </ul>
+              <div className="mt-3 bg-dark-main p-2 rounded">
+                <p className="text-xs text-light-darker">
+                  If speech recognition is not working, try these steps:
+                  <br/>1. Make sure you're using a compatible browser (Chrome works best)
+                  <br/>2. Check that your microphone is properly connected and not muted
+                  <br/>3. Ensure you've granted microphone permissions to this site
+                  <br/>4. Try refreshing the page and enabling the microphone again
+                </p>
+              </div>
+              
+              {/* Manual speech test button */}
+              <div className="mt-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs"
+                  onClick={async () => {
+                    try {
+                      await SpeechRecognition.startListening({ continuous: true });
+                      console.log("Manual speech recognition started");
+                    } catch (error) {
+                      console.error("Manual speech recognition failed:", error);
+                    }
+                  }}
+                >
+                  Try Manual Speech Recognition Start
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -669,10 +767,38 @@ function RecordingView({
           
           {/* Live Transcription */}
           <div className="mt-4 bg-dark-deeper/70 backdrop-blur-md rounded-xl p-4 border border-dark-lighter h-32 overflow-y-auto">
-            <h3 className="text-sm font-medium text-light-darker mb-2">Live Transcription:</h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-medium text-light-darker">Live Transcription:</h3>
+              <div 
+                className={`text-xs px-2 py-0.5 rounded ${listening ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}
+              >
+                {listening ? 'Microphone active' : 'Microphone inactive - check setup'}
+              </div>
+            </div>
             <p className="text-light">
               {transcript || "Start speaking to see your words appear here..."}
             </p>
+            
+            {/* Speech recognition debug/retry button */}
+            {!listening && (
+              <div className="mt-2 flex justify-end">
+                <button 
+                  className="text-xs text-primary underline"
+                  onClick={async () => {
+                    console.log("Trying to restart speech recognition...");
+                    try {
+                      // Force restart listening
+                      await SpeechRecognition.startListening({ continuous: true });
+                      console.log("Speech recognition restarted");
+                    } catch (error) {
+                      console.error("Failed to restart speech recognition:", error);
+                    }
+                  }}
+                >
+                  Try restart speech recognition
+                </button>
+              </div>
+            )}
           </div>
         </div>
         
