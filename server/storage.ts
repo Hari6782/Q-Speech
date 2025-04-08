@@ -1,6 +1,11 @@
 import { users, speechSessions, type User, type InsertUser, type SpeechSession, type InsertSpeechSession } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+// configure session store
+const PostgresSessionStore = connectPg(session);
 
 // modify the interface with any CRUD methods
 // you might need
@@ -18,10 +23,27 @@ export interface IStorage {
   getSpeechSession(id: number): Promise<SpeechSession | undefined>;
   getUserSpeechSessions(userId: number): Promise<SpeechSession[]>;
   getRecentSpeechSessions(limit?: number): Promise<SpeechSession[]>;
+  
+  // Session store for authentication
+  sessionStore: session.Store;
 }
 
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
+  // Session store for authentication
+  sessionStore: session.Store;
+  
+  constructor() {
+    // Initialize session store
+    this.sessionStore = new PostgresSessionStore({
+      conObject: {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      },
+      createTableIfMissing: true,
+    });
+  }
+  
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
