@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Analyze speech transcript with OpenAI and fallback if API quota is exceeded
+  // Analyze speech transcript - primarily using Gemini AI
   app.post("/api/analyze-speech", async (req, res) => {
     try {
       const { transcript, duration, poseData } = req.body;
@@ -262,58 +262,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      log(`Analyzing speech transcript (${transcript.length} chars, ${duration}s)`, "server");
+      log(`Analyzing speech transcript with Gemini (${transcript.length} chars, ${duration}s)`, "server");
       
       try {
-        // Try to use comprehensive analysis service with OpenAI
-        const analysis = await analyzeTranscript(transcript, duration, poseData);
-        
-        return res.status(200).json({
-          success: true,
-          analysis,
-          provider: "openai"
+        // Use Gemini API as the primary analysis provider
+        const geminiAnalysis = await analyzeTranscriptWithGemini(transcript, duration, poseData);
+            
+        return res.status(200).json({ 
+          success: true, 
+          analysis: geminiAnalysis,
+          provider: "gemini" 
         });
-      } catch (error) {
-        const openAiError = error as OpenAIError;
-        console.error("OpenAI API error:", openAiError);
+      } catch (geminiError) {
+        const error = geminiError as GeminiError;
+        console.error("Gemini API error:", error);
         
-        // Check if this is a rate limit or quota error
-        const isRateLimitOrQuotaError = 
-          (openAiError.status === 429) || 
-          (openAiError.error?.type === 'insufficient_quota') ||
-          (openAiError.code === 'insufficient_quota') ||
-          (typeof openAiError.message === 'string' && openAiError.message.includes('quota'));
+        // If Gemini fails, fall back to basic analysis without trying OpenAI
+        log("Gemini API failed, using basic fallback analysis", "server");
+        const basicFallbackAnalysis = generateFallbackAnalysis(transcript, duration, poseData);
         
-        if (isRateLimitOrQuotaError) {
-          log("OpenAI quota exceeded, trying Gemini as fallback", "server");
-          
-          try {
-            // Try using Gemini API as a secondary option
-            const geminiAnalysis = await analyzeTranscriptWithGemini(transcript, duration, poseData);
-            
-            return res.status(200).json({ 
-              success: true, 
-              analysis: geminiAnalysis,
-              provider: "gemini" 
-            });
-          } catch (geminiError) {
-            const error = geminiError as GeminiError;
-            console.error("Gemini API error:", error);
-            
-            // If Gemini also fails, use our basic fallback analysis
-            log("Gemini API failed, using basic fallback analysis", "server");
-            const basicFallbackAnalysis = generateFallbackAnalysis(transcript, duration, poseData);
-            
-            return res.status(200).json({ 
-              success: true, 
-              analysis: basicFallbackAnalysis,
-              provider: "fallback"
-            });
-          }
-        }
-        
-        // Rethrow for other types of errors
-        throw openAiError;
+        return res.status(200).json({ 
+          success: true, 
+          analysis: basicFallbackAnalysis,
+          provider: "fallback"
+        });
       }
     } catch (error) {
       console.error("Error analyzing speech:", error);
@@ -421,32 +393,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       confidenceFeedback += 'working on your speaking confidence would make your presentation more impactful.';
     }
     
-    // Create suggestions
+    // Create detailed, specific suggestions
     const suggestions = [];
     
     if (wordCount < 50) {
-      suggestions.push('Prepare more content to expand your speaking time and develop your ideas more fully.');
+      suggestions.push('Before your next practice, create a detailed outline with 3-5 main points and supporting evidence to develop your ideas more fully.');
     }
     
     if (wordsPerMinute > 180) {
-      suggestions.push('Practice speaking more slowly to improve clarity and give listeners time to process your message.');
+      suggestions.push('Practice the "slow breath" technique: take a deep breath between sentences to naturally slow your pace and improve clarity.');
     } else if (wordsPerMinute < 100) {
-      suggestions.push('Try increasing your speaking pace slightly to maintain audience engagement.');
+      suggestions.push('Try marking your speech notes with "speed up" reminders at specific points to maintain audience engagement.');
     }
     
     if (fillerCount > 5) {
-      suggestions.push('Record yourself speaking and practice reducing filler words like "um" and "uh".');
+      suggestions.push('Record yourself on your phone for 2 minutes and count your filler words. Then practice the same content again, replacing each filler with a deliberate pause.');
     }
     
     if (posture < 70) {
-      suggestions.push('Practice speaking with shoulders back and spine straight to project more confidence.');
+      suggestions.push('Practice speaking in front of a mirror for 5 minutes daily with shoulders back and spine straight to build muscle memory for confident posture.');
     }
     
     if (gestures < 70) {
-      suggestions.push('Incorporate more natural hand gestures to emphasize key points in your presentation.');
+      suggestions.push('Plan 3-5 specific hand gestures that match key points in your next speech to emphasize important concepts naturally.');
     }
     
-    suggestions.push('Continue practicing regularly to build confidence and speaking skills.');
+    suggestions.push('Schedule three 10-minute practice sessions this week, focusing on one specific skill (pace, gestures, or structure) in each session.');
     
     // Create the analysis object structure that matches the OpenAI version
     return {

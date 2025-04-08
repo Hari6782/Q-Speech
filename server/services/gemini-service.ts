@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 
 // Initialize the Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Use Gemini 1.5 Pro for best performance on multimodal and complex reasoning tasks
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
 /**
@@ -101,7 +102,16 @@ export async function analyzeTranscriptWithGemini(
     ${poseInfo}
     
     Analyze this speech comprehensively, focusing on content quality, structure, grammar, delivery, and body language.
-    Provide actionable feedback that would help improve future performances.
+    Provide detailed, actionable feedback that would help improve future performances. Focus on practical advice.
+    
+    For the topActionItems, include specific, concrete suggestions that the speaker can implement immediately.
+    Each action item should be clear, specific, and directly related to an area that needs improvement.
+    
+    Examples of good action items:
+    - "Practice speaking in front of a mirror for 5 minutes daily to improve posture and eye contact"
+    - "Record your next practice session and identify moments when you use filler words"
+    - "Prepare a clear introduction that states your main point in the first 30 seconds"
+    
     Use the exact JSON structure specified. Ensure all scores are realistic and match the quality of the speech.
     `;
 
@@ -161,12 +171,14 @@ function validateAndSanitizeAnalysis(analysis: any) {
     analysis.overallScore = (speechScore * 0.4) + (bodyScore * 0.4) + (confidenceScore * 0.2);
   }
   
-  // Ensure action items exist
+  // Ensure action items exist with substantive feedback
   if (!analysis.topActionItems || !Array.isArray(analysis.topActionItems) || analysis.topActionItems.length === 0) {
     analysis.topActionItems = [
-      'Practice regularly to build confidence and fluency',
-      'Record yourself to observe and improve body language',
-      'Prepare structured content with clear introduction and conclusion'
+      'Practice speaking in front of a mirror for 5 minutes daily to improve your posture and eye contact',
+      'Record your next practice session on your phone and note moments when you use filler words',
+      'Before your next speech, write a clear outline with an introduction that states your main point in the first 30 seconds',
+      'Try the "pause technique" - replace filler words with deliberate 1-2 second pauses to seem more confident',
+      'Practice varying your speaking pace to emphasize important points and maintain audience engagement'
     ];
   }
   
