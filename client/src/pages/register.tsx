@@ -3,61 +3,73 @@ import { ParticleBackground } from "@/components/particle-background";
 import { WaveBackground } from "@/components/wave-background";
 import { SoundWaveVisualizer } from "@/components/sound-wave-visualizer";
 import { Logo } from "@/components/logo";
+import { motion } from "framer-motion";
 
 export default function Register() {
   return (
-    <div className="min-h-screen bg-dark-main flex flex-col overflow-hidden relative">
-      {/* Background Effects */}
-      <WaveBackground />
+    <div className="font-sans text-light min-h-screen flex flex-col">
+      {/* Background Elements */}
       <ParticleBackground />
-      
-      {/* Animated Sound Wave Visualizer */}
-      <div className="absolute top-0 left-0 right-0 h-72 pointer-events-none">
-        <SoundWaveVisualizer />
-      </div>
-      
-      <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
-        {/* Logo Area */}
-        <div className="flex justify-center mt-6 mb-10">
-          <Logo />
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col md:flex-row gap-12 items-center justify-center">
-          {/* Registration Form Column */}
-          <div className="w-full max-w-md">
-            <RegisterForm />
-          </div>
-          
-          {/* Features Column */}
-          <div className="w-full max-w-md text-light">
-            <h2 className="text-3xl font-bold mb-6 font-special">Experience Q-Speech</h2>
-            <div className="space-y-6">
-              <FeatureItem>
-                Advanced AI-powered speech recognition that adapts to your voice and accent
-              </FeatureItem>
-              <FeatureItem>
-                Real-time translation in over 50 languages with natural-sounding voices
-              </FeatureItem>
-              <FeatureItem>
-                Voice commands that integrate with your favorite applications and smart devices
-              </FeatureItem>
-              <FeatureItem>
-                Custom voice profiles for personalized audio experiences
-              </FeatureItem>
+      <WaveBackground />
+
+      {/* Main Content */}
+      <main className="flex-grow flex flex-col md:flex-row w-full relative z-10">
+        {/* Left Side - Brand/Info */}
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center items-center md:items-end">
+          <motion.div 
+            className="max-w-lg"
+            animate={{ y: [0, -20, 0] }}
+            transition={{ 
+              duration: 6, 
+              repeat: Infinity, 
+              ease: "easeInOut" 
+            }}
+          >
+            {/* Logo */}
+            <div className="mb-6 flex items-center">
+              <Logo />
+              <h1 className="text-4xl font-bold font-special bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Q-Speech</h1>
             </div>
-          </div>
+            
+            {/* Animated Headline */}
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
+              <span className="block">Create Your</span>
+              <span className="block bg-clip-text text-transparent bg-gradient-to-r from-primary-light to-secondary-light">Account Today</span>
+            </h2>
+            
+            {/* Animated Sound Wave Visualizer */}
+            <SoundWaveVisualizer />
+            
+            {/* Features */}
+            <div className="mt-8 space-y-4">
+              <FeatureItem>Advanced AI-powered speech recognition</FeatureItem>
+              <FeatureItem>Real-time translation in over 50 languages</FeatureItem>
+              <FeatureItem>Voice commands for smart devices</FeatureItem>
+              <FeatureItem>Custom voice profiles for personalization</FeatureItem>
+            </div>
+          </motion.div>
         </div>
-      </div>
+
+        {/* Right Side - Registration Form */}
+        <div className="w-full md:w-1/2 flex items-center justify-center p-8">
+          <RegisterForm />
+        </div>
+      </main>
+
+      <footer className="relative z-10 py-4 text-center text-light-darker text-sm">
+        <p>© {new Date().getFullYear()} Q-Speech AI. All rights reserved.</p>
+      </footer>
     </div>
   );
 }
 
 function FeatureItem({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start space-x-3 p-4 bg-dark-deeper/70 backdrop-blur-sm rounded-xl border border-dark-lighter">
-      <div className="mt-1 flex-shrink-0 w-5 h-5 rounded-full bg-primary-light/20 flex items-center justify-center">
-        <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
+    <div className="flex items-center space-x-3">
+      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-light" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
       </div>
       <p className="text-light-darker">{children}</p>
     </div>
