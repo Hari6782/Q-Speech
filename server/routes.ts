@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loginUserSchema, insertUserSchema } from "@shared/schema";
 import { log } from "./vite";
+import { analyzeTranscript } from "./services/openai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
@@ -217,6 +218,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({
         success: false,
         message: "Server error while creating speech session"
+      });
+    }
+  });
+  
+  // Analyze speech transcript with OpenAI
+  app.post("/api/analyze-speech", async (req, res) => {
+    try {
+      const { transcript, duration } = req.body;
+      
+      if (!transcript || typeof transcript !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: "Transcript is required and must be a string"
+        });
+      }
+      
+      if (!duration || typeof duration !== 'number' || duration <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Duration is required and must be a positive number"
+        });
+      }
+      
+      log(`Analyzing speech transcript (${transcript.length} chars, ${duration}s)`, "server");
+      
+      // Use OpenAI to analyze the transcript
+      const analysis = await analyzeTranscript(transcript, duration);
+      
+      return res.status(200).json({
+        success: true,
+        analysis
+      });
+    } catch (error) {
+      console.error("Error analyzing speech:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while analyzing speech"
       });
     }
   });

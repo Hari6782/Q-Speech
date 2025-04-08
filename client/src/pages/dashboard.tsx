@@ -162,6 +162,16 @@ function HistoryTab() {
     <div className="max-w-5xl mx-auto">
       <h2 className="text-3xl font-bold mb-6">Practice History</h2>
       <div className="bg-dark-deeper/70 backdrop-blur-md rounded-xl p-6 border border-dark-lighter">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold">Your Speech Sessions</h3>
+          <Button 
+            className="bg-primary hover:bg-primary-dark" 
+            onClick={() => window.location.href = '/practice'}
+          >
+            New Practice Session
+          </Button>
+        </div>
+        
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="flex space-x-2">
@@ -171,48 +181,73 @@ function HistoryTab() {
             </div>
           </div>
         ) : sessions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-dark-lighter">
-                  <th className="text-left p-4 text-light-darker font-medium">Title</th>
-                  <th className="text-left p-4 text-light-darker font-medium">Date</th>
-                  <th className="text-left p-4 text-light-darker font-medium">Duration</th>
-                  <th className="text-center p-4 text-light-darker font-medium">Overall Score</th>
-                  <th className="text-right p-4 text-light-darker font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((session) => (
-                  <tr key={session.id} className="border-b border-dark-lighter hover:bg-dark-lighter/30 transition-colors">
-                    <td className="p-4">{session.title}</td>
-                    <td className="p-4 text-light-darker">{formatDate(session.createdAt)}</td>
-                    <td className="p-4 text-light-darker">{formatDuration(session.duration)}</td>
-                    <td className="p-4 text-center">
-                      <div className="inline-flex items-center bg-dark-lighter rounded-full px-3 py-1">
-                        <span className={`text-sm font-medium ${
-                          session.totalScore >= 80 ? 'text-green-400' :
-                          session.totalScore >= 60 ? 'text-yellow-400' :
+          <div className="space-y-4">
+            {sessions.map((session) => (
+              <div key={session.id} className="bg-dark-lighter/20 rounded-lg p-4 hover:bg-dark-lighter/30 transition-colors">
+                <div className="flex flex-col md:flex-row justify-between">
+                  <div className="mb-3 md:mb-0">
+                    <h4 className="font-semibold text-lg">{session.title || 'Untitled Session'}</h4>
+                    <p className="text-light-darker text-sm">
+                      {formatDate(session.createdAt)} • {formatDuration(session.duration)} mins
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="flex space-x-4">
+                      <div className="text-center">
+                        <div className={`text-lg font-medium ${
+                          session.speechScore >= 80 ? 'text-green-400' :
+                          session.speechScore >= 60 ? 'text-yellow-400' :
                           'text-red-400'
                         }`}>
-                          {session.totalScore || 0}%
-                        </span>
+                          {session.speechScore || 0}%
+                        </div>
+                        <div className="text-xs text-light-darker">Speech</div>
                       </div>
-                    </td>
-                    <td className="p-4 text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-primary"
-                        onClick={() => window.location.href = `/practice/details/${session.id}`}
-                      >
-                        View Details
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      
+                      <div className="text-center">
+                        <div className={`text-lg font-medium ${
+                          session.bodyLanguageScore >= 80 ? 'text-green-400' :
+                          session.bodyLanguageScore >= 60 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {session.bodyLanguageScore || 0}%
+                        </div>
+                        <div className="text-xs text-light-darker">Body</div>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className={`text-lg font-medium ${
+                          session.confidenceScore >= 80 ? 'text-green-400' :
+                          session.confidenceScore >= 60 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {session.confidenceScore || 0}%
+                        </div>
+                        <div className="text-xs text-light-darker">Confidence</div>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-primary border-primary hover:bg-primary/10"
+                      onClick={() => window.location.href = `/practice/details/${session.id}`}
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Preview of transcript */}
+                {session.transcript && (
+                  <div className="mt-3 text-sm text-light-darker bg-dark-deeper p-3 rounded-lg max-h-16 overflow-hidden relative">
+                    <p className="line-clamp-2">{session.transcript}</p>
+                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-dark-deeper to-transparent"></div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
           <div className="text-center text-light-darker py-8">

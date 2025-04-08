@@ -152,24 +152,68 @@ export default function SessionDetails() {
             {/* Feedback */}
             <div className="bg-dark-deeper/70 backdrop-blur-md rounded-xl p-6 border border-dark-lighter mb-8">
               <h2 className="text-xl font-bold mb-4">Feedback Analysis</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FeedbackCard 
-                  title="Speech Analysis" 
-                  description={session.speechFeedback || "No speech feedback available."} 
-                />
-                <FeedbackCard 
-                  title="Body Language Analysis" 
-                  description={session.bodyLanguageFeedback || "No body language feedback available."} 
-                />
-                <FeedbackCard 
-                  title="Confidence Analysis" 
-                  description={session.confidenceFeedback || "No confidence feedback available."} 
-                />
-                <FeedbackCard 
-                  title="Tips for Improvement" 
-                  description={session.improvementTips || "No improvement tips available."} 
-                />
-              </div>
+              
+              {/* Parse and display all feedback from the session */}
+              {session.feedback ? (
+                <div className="bg-dark-lighter/30 p-5 rounded-lg mb-6">
+                  <h3 className="font-semibold mb-3 text-primary">AI Speech Analysis</h3>
+                  <div className="whitespace-pre-wrap text-light-darker mb-4">
+                    {session.feedback}
+                  </div>
+                  
+                  {/* Visual separator */}
+                  <div className="border-t border-dark-lighter my-4"></div>
+                  
+                  {/* Performance metrics visualization */}
+                  {session.metrics && (
+                    <div>
+                      <h3 className="font-semibold mb-3">Performance Metrics</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(session.metrics).map(([key, value]) => {
+                          // Convert unknown value to number for safe comparison
+                          const numValue = typeof value === 'number' ? value : 
+                                          typeof value === 'string' ? parseFloat(value) : 0;
+                          
+                          return (
+                            <div key={key} className="bg-dark-deeper rounded-lg p-3 text-center">
+                              <div className={`text-xl font-medium ${
+                                numValue >= 80 ? 'text-green-400' :
+                                numValue >= 60 ? 'text-yellow-400' :
+                                'text-red-400'
+                              }`}>
+                                {typeof value === 'number' ? value : 
+                                 typeof value === 'string' ? value : '0'}%
+                              </div>
+                              <div className="text-xs text-light-darker capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FeedbackCard 
+                    title="Speech Analysis" 
+                    description="No speech feedback available." 
+                  />
+                  <FeedbackCard 
+                    title="Body Language Analysis" 
+                    description="No body language feedback available." 
+                  />
+                  <FeedbackCard 
+                    title="Confidence Analysis" 
+                    description="No confidence feedback available." 
+                  />
+                  <FeedbackCard 
+                    title="Tips for Improvement" 
+                    description="No improvement tips available." 
+                  />
+                </div>
+              )}
             </div>
             
             <div className="flex justify-center gap-4 mt-12">

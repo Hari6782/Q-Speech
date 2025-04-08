@@ -108,7 +108,7 @@ export default function Practice() {
   };
 
   // End practice session
-  const endPractice = () => {
+  const endPractice = async () => {
     // Stop timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -120,18 +120,82 @@ export default function Practice() {
     // Set status to processing
     setStatus('processing');
     
-    // Process results (simulate processing time)
-    setTimeout(() => {
-      // Generate simulated results
-      const results = analyzeResults(transcript);
+    try {
+      // Basic metrics calculation
+      const wordCount = transcript.split(' ').filter(word => word.trim() !== '').length;
+      const wordsPerMinute = wordCount / (elapsedTime / 60);
+      
+      // Count filler words
+      const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally'];
+      const fillerCount = fillerWords.reduce((count, filler) => {
+        const regex = new RegExp(`\\b${filler}\\b`, 'gi');
+        const matches = transcript.match(regex) || [];
+        return count + matches.length;
+      }, 0);
+      
+      // Calculate sentences
+      const sentences = transcript.split(/[.!?]+/).filter(Boolean);
+      const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
+      
+      // Estimate body language score (would be calculated from pose detection in a real app)
+      const bodyLanguageScore = 75;
+      
+      // Send transcript for AI analysis
+      const response = await apiRequest('POST', '/api/analyze-speech', {
+        transcript,
+        duration: elapsedTime
+      });
+      
+      if (!response.success) {
+        throw new Error("Speech analysis failed");
+      }
+      
+      // Extract analysis results
+      const { speechScore, confidenceScore, speechFeedback, confidenceFeedback, improvementTips } = response.analysis;
+      
+      // Combine all results
+      const combinedResults = {
+        transcript,
+        wordCount,
+        fillerCount,
+        wordsPerMinute,
+        avgSentenceLength,
+        duration: elapsedTime,
+        scores: {
+          speech: speechScore,
+          bodyLanguage: bodyLanguageScore,
+          confidence: confidenceScore,
+          total: (speechScore * 0.4) + (bodyLanguageScore * 0.4) + (confidenceScore * 0.2)
+        },
+        feedback: {
+          speech: speechFeedback,
+          confidence: confidenceFeedback
+        },
+        suggestions: Array.isArray(improvementTips) 
+          ? improvementTips 
+          : [improvementTips].filter(Boolean)
+      };
+      
+      setAnalysisResults(combinedResults);
+      setStatus('results');
+    } catch (error) {
+      console.error("Error analyzing speech:", error);
+      toast({
+        title: "Analysis Error",
+        description: "There was a problem analyzing your practice session. Falling back to basic analysis.",
+        variant: "destructive",
+      });
+      
+      // Fallback to basic analysis if AI analysis fails
+      const results = analyzeResultsBasic(transcript);
       setAnalysisResults(results);
       setStatus('results');
-    }, 3000);
+    }
   };
 
-  // Function to analyze results (basic implementation)
-  const analyzeResults = (text: string) => {
-    // Basic speech analysis (in real app, this would be more sophisticated)
+  // Basic analysis as a fallback
+  const analyzeResultsBasic = (text: string) => {
+    // Basic speech analysis
     const wordCount = text.split(' ').filter(word => word.trim() !== '').length;
     
     // Simple time check (speaking too fast or too slow)
@@ -186,8 +250,12 @@ export default function Practice() {
         confidence: confidenceScore,
         total: totalScore
       },
+      feedback: {
+        speech: "This analysis was performed using basic metrics. For more detailed feedback, try again with a longer speech sample.",
+        confidence: "Confidence score is estimated based on speaking pace and clarity."
+      },
       suggestions: [
-        // Sample suggestions (in a real app, these would be generated based on analysis)
+        // Sample suggestions
         wordsPerMinute > 180 ? 'Try speaking a bit slower for better clarity.' : null,
         wordsPerMinute < 100 ? 'Consider picking up the pace a little to maintain audience interest.' : null,
         fillerCount > 5 ? `Watch out for filler words like "um" and "uh" - you used them ${fillerCount} times.` : null,
@@ -583,7 +651,10 @@ function ResultsView({
           bodyLanguageScore: Math.round(results.scores.bodyLanguage),
           confidenceScore: Math.round(results.scores.confidence),
           totalScore: Math.round(results.scores.total),
-          feedback: results.suggestions.join('\n'),
+          // Include both AI feedback and suggestions
+          feedback: results.feedback ? 
+            `${results.feedback.speech}\n\n${results.feedback.confidence}\n\n${results.suggestions.join('\n')}` : 
+            results.suggestions.join('\n'),
           metrics: {
             vocabulary: results.wordCount > 50 ? 80 : 60,
             grammar: 75,
@@ -719,6 +790,24 @@ function ResultsView({
             </p>
           </div>
         </div>
+        
+        {/* AI-Powered Speech Feedback */}
+        {results.feedback && (
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Speech Quality Analysis</h4>
+            <div className="bg-dark-deeper p-4 rounded-lg">
+              <p className="mb-4 text-light leading-relaxed">
+                {results.feedback.speech || "Detailed speech analysis not available."}
+              </p>
+              <div className="border-t border-dark-lighter pt-4 mt-2">
+                <h5 className="text-sm font-medium mb-2 text-primary">Confidence Assessment</h5>
+                <p className="text-light-darker leading-relaxed">
+                  {results.feedback.confidence || "Confidence analysis not available."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {results.suggestions && results.suggestions.length > 0 && (
           <div>
