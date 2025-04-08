@@ -18,6 +18,7 @@ export default function Practice() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [analysisResults, setAnalysisResults] = useState<any | null>(null);
+  const [poseMetrics, setPoseMetrics] = useState<any>(null);  // Track pose data
   
   const webcamRef = useRef<Webcam>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -137,10 +138,11 @@ export default function Practice() {
       const sentences = transcript.split(/[.!?]+/).filter(Boolean);
       const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
       
-      // Send transcript for AI analysis
+      // Send transcript and pose data for comprehensive AI analysis
       const response = await apiRequest('POST', '/api/analyze-speech', {
         transcript,
-        duration: elapsedTime
+        duration: elapsedTime,
+        poseData: poseMetrics // Include collected pose metrics for analysis
       });
       
       if (!response.success) {
@@ -415,6 +417,7 @@ export default function Practice() {
             endPractice={endPractice}
             webcamRef={webcamRef}
             listening={listening}
+            onPoseMetricsUpdate={(metrics) => setPoseMetrics(metrics)}
           />
         )}
 
@@ -557,15 +560,46 @@ function RecordingView({
   transcript, 
   endPractice,
   webcamRef,
-  listening
+  listening,
+  onPoseMetricsUpdate
 }: { 
   elapsedTime: number, 
   formatTime: (seconds: number) => string, 
   transcript: string,
   endPractice: () => void,
   webcamRef: React.RefObject<Webcam>,
-  listening: boolean
+  listening: boolean,
+  onPoseMetricsUpdate: (metrics: any) => void
 }) {
+  // State to track body language metrics
+  const [poseMetrics, setPoseMetrics] = useState({
+    posture: 0,
+    gestures: 0,
+    stability: 0,
+    confidence: 0
+  });
+
+  // Handle pose detection events
+  const handlePoseDetected = (pose: any, metrics: any) => {
+    // Update pose metrics with smoothed values
+    const updatedMetrics = {
+      posture: Math.round(poseMetrics.posture * 0.7 + metrics.posture * 0.3), // Smooth transition
+      gestures: Math.round(poseMetrics.gestures * 0.7 + metrics.gestures * 0.3),
+      stability: Math.round(poseMetrics.stability * 0.7 + metrics.stability * 0.3),
+      confidence: Math.round((metrics.posture + metrics.stability) / 2), // Combine posture and stability
+      poseData: metrics // Store the original metrics data
+    };
+    
+    setPoseMetrics(updatedMetrics);
+    
+    // Pass the metrics up to the parent component
+    onPoseMetricsUpdate({
+      ...updatedMetrics,
+      rawPose: pose, // Include the raw pose data for analysis
+      keypoints: metrics.keypoints || [] // Include keypoints if available
+    });
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="grid lg:grid-cols-3 gap-6">
@@ -583,7 +617,7 @@ function RecordingView({
             
             {/* Pose Detector Overlay */}
             <div className="absolute inset-0">
-              <Posedetector videoRef={webcamRef} />
+              <Posedetector videoRef={webcamRef} onPoseDetected={handlePoseDetected} />
             </div>
             
             {/* Recording Indicator */}
@@ -591,6 +625,37 @@ function RecordingView({
               <div className="w-3 h-3 rounded-full bg-error animate-pulse"></div>
               <span className="text-sm font-medium">REC</span>
               <span className="text-sm">{formatTime(elapsedTime)}</span>
+            </div>
+            
+            {/* Body Language Metrics Panel */}
+            <div className="absolute bottom-4 left-4 bg-dark-deeper/80 backdrop-blur-sm p-2 rounded-lg text-sm">
+              <div className="text-xs uppercase tracking-wider mb-1 text-light-darker">Body Language</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <div className="flex justify-between">
+                  <span>Posture:</span>
+                  <span className={poseMetrics.posture > 60 ? 'text-success' : 'text-warning'}>
+                    {poseMetrics.posture}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Gestures:</span>
+                  <span className={poseMetrics.gestures > 60 ? 'text-success' : 'text-warning'}>
+                    {poseMetrics.gestures}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Stability:</span>
+                  <span className={poseMetrics.stability > 60 ? 'text-success' : 'text-warning'}>
+                    {poseMetrics.stability}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Movement:</span>
+                  <span className={poseMetrics.confidence > 60 ? 'text-success' : 'text-warning'}>
+                    {poseMetrics.confidence}%
+                  </span>
+                </div>
+              </div>
             </div>
             
             {/* Mic Status Indicator */}
