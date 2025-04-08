@@ -1,6 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { log } from "./vite";
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 // Create a PostgreSQL client
 const connectionString = process.env.DATABASE_URL;
