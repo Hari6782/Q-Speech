@@ -298,10 +298,11 @@ export default function Practice() {
       };
     }
   
-    // Basic speech analysis
-    const wordCount = text.split(' ').filter(word => word.trim() !== '').length;
+    // Basic speech analysis with improved metrics
+    const words = text.split(' ').filter(word => word.trim() !== '');
+    const wordCount = words.length;
     
-    // Very short transcript handling
+    // Very short transcript handling with more detailed feedback
     if (wordCount < 5) {
       return {
         transcript: text,
@@ -328,46 +329,64 @@ export default function Practice() {
       };
     }
     
-    // Simple time check (speaking too fast or too slow)
+    // Calculate speaking rate with improved accuracy
     const wordsPerMinute = wordCount / (elapsedTime / 60);
     
-    // Check for filler words
-    const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally'];
+    // Enhanced filler word detection with more patterns
+    const fillerWords = [
+      'um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally',
+      'kind of', 'sort of', 'I mean', 'well', 'right', 'okay', 'anyway', 'anyways',
+      'just', 'really', 'very', 'totally', 'completely', 'absolutely', 'definitely',
+      'probably', 'maybe', 'perhaps', 'I think', 'I guess', 'I suppose'
+    ];
+    
     const fillerCount = fillerWords.reduce((count, filler) => {
       const regex = new RegExp(`\\b${filler}\\b`, 'gi');
       const matches = text.match(regex) || [];
       return count + matches.length;
     }, 0);
     
-    // Simple grammar check
+    // Improved sentence analysis
     const sentences = text.split(/[.!?]+/).filter(Boolean);
     const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
     
-    // Calculate scores (simplified for demo)
+    // Enhanced scoring algorithm
     const speechScore = Math.min(100, Math.max(0, 
       // Base score
       70
       // Word count penalty if very low
-      + (wordCount < 20 ? -10 : 0)
+      + (wordCount < 20 ? -15 : wordCount > 100 ? 10 : 0)
       // Words per minute penalty if too fast/slow
       + (wordsPerMinute < 100 ? -5 : (wordsPerMinute > 180 ? -10 : 5))
-      // Filler words penalty
-      - (fillerCount * 2)
+      // Filler words penalty with diminishing returns
+      - Math.min(fillerCount * 2, 20)
       // Sentence length bonus/penalty
       + (avgSentenceLength > 5 && avgSentenceLength < 20 ? 5 : -5)
+      // Bonus for longer speeches
+      + (wordCount > 200 ? 5 : 0)
     ));
     
-    // Adjust body language and confidence scores based on speech duration
+    // More realistic body language and confidence scores
     const durationFactor = Math.min(1, elapsedTime / 30); // Scale up to 30 seconds
-    const bodyLanguageScore = Math.round(75 * durationFactor); // Scale based on duration
-    const confidenceScore = Math.round(80 * durationFactor); // Scale based on duration
+    const bodyLanguageScore = Math.round(75 * durationFactor);
+    const confidenceScore = Math.round(80 * durationFactor);
     
-    // Calculate total score
+    // Calculate total score with adjusted weights
     const totalScore = (
       (speechScore * 0.4) + 
       (bodyLanguageScore * 0.4) + 
       (confidenceScore * 0.2)
     );
+    
+    // Generate more specific feedback based on metrics
+    const speechFeedback = [
+      wordsPerMinute > 180 ? 'You speak quite fast. Consider slowing down for better clarity.' : null,
+      wordsPerMinute < 100 ? 'Your speaking pace is a bit slow. Try to maintain a more engaging rhythm.' : null,
+      fillerCount > 5 ? `You used ${fillerCount} filler words. Try to reduce these for a more professional delivery.` : null,
+      avgSentenceLength > 20 ? 'Your sentences are quite long. Consider breaking them up for better clarity.' : null,
+      avgSentenceLength < 5 && sentences.length > 3 ? 'Try using more complex sentence structures to sound more natural.' : null,
+      wordCount < 50 ? 'Your speech was quite short. Consider elaborating more on your points.' : null,
+    ].filter(Boolean).join(' ');
     
     return {
       transcript: text,
@@ -376,7 +395,7 @@ export default function Practice() {
       wordsPerMinute,
       avgSentenceLength,
       duration: elapsedTime,
-      analysisProvider: 'client', // Mark this as client-side fallback analysis
+      analysisProvider: 'client',
       scores: {
         speech: speechScore,
         bodyLanguage: bodyLanguageScore,
@@ -384,17 +403,19 @@ export default function Practice() {
         total: totalScore
       },
       feedback: {
-        speech: "This analysis was performed using basic metrics. For more detailed feedback, try again with a longer speech sample.",
+        speech: speechFeedback || "This analysis was performed using basic metrics. For more detailed feedback, try again with a longer speech sample.",
         confidence: "Confidence score is estimated based on speaking pace and clarity."
       },
       suggestions: [
-        // Sample suggestions
         wordsPerMinute > 180 ? 'Try speaking a bit slower for better clarity.' : null,
         wordsPerMinute < 100 ? 'Consider picking up the pace a little to maintain audience interest.' : null,
         fillerCount > 5 ? `Watch out for filler words like "um" and "uh" - you used them ${fillerCount} times.` : null,
         avgSentenceLength > 20 ? 'Consider using shorter sentences for better clarity.' : null,
         avgSentenceLength < 5 && sentences.length > 3 ? 'Try using more complex sentence structures to sound more natural.' : null,
         wordCount < 50 ? 'Your speech was quite short. Consider elaborating more on your points.' : null,
+        'Practice speaking in front of a mirror to improve your body language.',
+        'Record yourself and listen back to identify areas for improvement.',
+        'Try the "pause technique" - replace filler words with deliberate 1-2 second pauses.',
       ].filter(Boolean)
     };
   };

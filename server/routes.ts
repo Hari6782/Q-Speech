@@ -226,22 +226,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Fallback analysis function that doesn't require OpenAI
   function generateFallbackAnalysis(transcript: string, duration: number, poseData: any) {
-    // Basic statistics
+    // Basic statistics with improved word counting
     const words = transcript.split(/\s+/).filter(word => word.trim().length > 0);
     const wordCount = words.length;
     const wordsPerMinute = wordCount / (duration / 60);
     
-    // Count filler words
-    const fillerWords = ['um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally'];
+    // Enhanced filler word detection with more patterns
+    const fillerWords = [
+      'um', 'uh', 'like', 'you know', 'so', 'basically', 'actually', 'literally',
+      'kind of', 'sort of', 'I mean', 'well', 'right', 'okay', 'anyway', 'anyways',
+      'just', 'really', 'very', 'totally', 'completely', 'absolutely', 'definitely',
+      'probably', 'maybe', 'perhaps', 'I think', 'I guess', 'I suppose'
+    ];
+    
     const fillerCount = fillerWords.reduce((count, filler) => {
       const regex = new RegExp(`\\b${filler}\\b`, 'gi');
       const matches = transcript.match(regex) || [];
       return count + matches.length;
     }, 0);
     
-    // Calculate sentences
+    // Improved sentence analysis
     const sentences = transcript.split(/[.!?]+/).filter(Boolean);
     const avgSentenceLength = sentences.length > 0 ? wordCount / sentences.length : 0;
+    
+    // Calculate speech score with enhanced metrics
+    const speechScore = Math.min(100, Math.max(0, 
+      // Base score
+      70
+      // Word count penalty if very low
+      + (wordCount < 20 ? -15 : wordCount > 100 ? 10 : 0)
+      // Words per minute penalty if too fast/slow
+      + (wordsPerMinute < 100 ? -5 : (wordsPerMinute > 180 ? -10 : 5))
+      // Filler words penalty with diminishing returns
+      - Math.min(fillerCount * 2, 20)
+      // Sentence length bonus/penalty
+      + (avgSentenceLength > 5 && avgSentenceLength < 20 ? 5 : -5)
+      // Bonus for longer speeches
+      + (wordCount > 200 ? 5 : 0)
+    ));
     
     // Calculate pose metrics if available
     let posture = 70;
@@ -254,145 +276,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       movement = poseData.movement || movement;
     }
     
-    // Calculate speech score
-    const speechScore = Math.min(100, Math.max(0, 
-      // Base score
-      70
-      // Word count penalty if very low
-      + (wordCount < 20 ? -15 : wordCount > 100 ? 10 : 0)
-      // Words per minute penalty if too fast/slow
-      + (wordsPerMinute < 100 ? -5 : (wordsPerMinute > 180 ? -10 : 5))
-      // Filler words penalty
-      - (fillerCount * 2)
-      // Sentence length bonus/penalty
-      + (avgSentenceLength > 5 && avgSentenceLength < 20 ? 5 : -5)
-    ));
+    // Generate specific feedback based on metrics
+    const speechFeedback = [
+      wordsPerMinute > 180 ? 'You speak quite fast. Consider slowing down for better clarity.' : null,
+      wordsPerMinute < 100 ? 'Your speaking pace is a bit slow. Try to maintain a more engaging rhythm.' : null,
+      fillerCount > 5 ? `You used ${fillerCount} filler words. Try to reduce these for a more professional delivery.` : null,
+      avgSentenceLength > 20 ? 'Your sentences are quite long. Consider breaking them up for better clarity.' : null,
+      avgSentenceLength < 5 && sentences.length > 3 ? 'Try using more complex sentence structures to sound more natural.' : null,
+      wordCount < 50 ? 'Your speech was quite short. Consider elaborating more on your points.' : null,
+    ].filter(Boolean).join(' ');
     
-    // Create grammar analysis feedback
-    let grammarFeedback = 'Your speech was analyzed with our basic analytics system.';
-    
-    if (wordCount < 20) {
-      grammarFeedback += ' Your speech was quite short, which makes detailed analysis difficult. Try speaking for at least 30 seconds for a more thorough evaluation.';
-    } else {
-      if (wordsPerMinute > 180) {
-        grammarFeedback += ' Your speaking pace was quite fast. Consider slowing down to improve clarity and comprehension.';
-      } else if (wordsPerMinute < 100) {
-        grammarFeedback += ' Your speaking pace was somewhat slow. A slightly faster pace might help maintain audience engagement.';
-      } else {
-        grammarFeedback += ' Your speaking pace was good, making it easy for listeners to follow along.';
-      }
-      
-      if (fillerCount > 5) {
-        grammarFeedback += ` You used filler words like "um" and "uh" ${fillerCount} times. Reducing these would make your speech sound more polished.`;
-      } else if (fillerCount > 0) {
-        grammarFeedback += ' You used a few filler words, but not enough to significantly impact your speech quality.';
-      } else {
-        grammarFeedback += ' You did a great job avoiding filler words, which made your speech sound more professional.';
-      }
-    }
-    
-    // Create body language feedback
-    let bodyLanguageFeedback = 'Based on the video analysis';
-    
-    if (posture > 80) {
-      bodyLanguageFeedback += ', your posture was excellent, which conveys confidence and authority.';
-    } else if (posture > 60) {
-      bodyLanguageFeedback += ', your posture was generally good but could be improved for a more commanding presence.';
-    } else {
-      bodyLanguageFeedback += ', improving your posture would significantly enhance your speaking presence.';
-    }
-    
-    if (gestures > 80) {
-      bodyLanguageFeedback += ' Your use of gestures was natural and effective in emphasizing key points.';
-    } else if (gestures > 60) {
-      bodyLanguageFeedback += ' Consider using more purposeful hand gestures to emphasize important points.';
-    } else {
-      bodyLanguageFeedback += ' Adding more hand gestures would help engage your audience and highlight key points.';
-    }
-    
-    // Create confidence feedback
-    let confidenceFeedback = 'In terms of confidence, ';
-    if (posture > 70 && wordsPerMinute > 120) {
-      confidenceFeedback += 'you presented with a good level of energy and assurance.';
-    } else if (posture > 60 || wordsPerMinute > 110) {
-      confidenceFeedback += 'you showed moderate confidence, but there\'s room for improvement.';
-    } else {
-      confidenceFeedback += 'working on your speaking confidence would make your presentation more impactful.';
-    }
-    
-    // Create detailed, specific suggestions
-    const suggestions = [];
-    
-    if (wordCount < 50) {
-      suggestions.push('Before your next practice, create a detailed outline with 3-5 main points and supporting evidence to develop your ideas more fully.');
-    }
-    
-    if (wordsPerMinute > 180) {
-      suggestions.push('Practice the "slow breath" technique: take a deep breath between sentences to naturally slow your pace and improve clarity.');
-    } else if (wordsPerMinute < 100) {
-      suggestions.push('Try marking your speech notes with "speed up" reminders at specific points to maintain audience engagement.');
-    }
-    
-    if (fillerCount > 5) {
-      suggestions.push('Record yourself on your phone for 2 minutes and count your filler words. Then practice the same content again, replacing each filler with a deliberate pause.');
-    }
-    
-    if (posture < 70) {
-      suggestions.push('Practice speaking in front of a mirror for 5 minutes daily with shoulders back and spine straight to build muscle memory for confident posture.');
-    }
-    
-    if (gestures < 70) {
-      suggestions.push('Plan 3-5 specific hand gestures that match key points in your next speech to emphasize important concepts naturally.');
-    }
-    
-    suggestions.push('Schedule three 10-minute practice sessions this week, focusing on one specific skill (pace, gestures, or structure) in each session.');
-    
-    // Create the analysis object structure that matches the OpenAI version
     return {
       speechContent: {
         score: speechScore,
         grammarAndLanguage: {
           score: speechScore,
-          fillerWords: {
-            count: fillerCount,
-            rate: (fillerCount / wordCount) * 100
+          fillerWords: { count: fillerCount, instances: [], rate: fillerCount / wordCount },
+          transitionWords: { count: 0, instances: [], coverage: 0, categories: {} },
+          sentenceStructure: { 
+            averageLength: avgSentenceLength, 
+            complexityScore: 0, 
+            varietyScore: 0,
+            pacingScore: 0 
           },
-          vocabularyRichness: 65,
-          readabilityScore: 70,
-          sentenceStructure: {
-            averageLength: avgSentenceLength,
-            varietyScore: 65
-          }
+          vocabularyRichness: 0,
+          readabilityScore: 0,
+          engagement: 0,
+          coherence: 0,
+          suggestions: [speechFeedback],
+          advancedInsights: []
         },
         structure: {
-          score: 65,
-          hasIntroduction: wordCount > 30,
-          hasConclusion: wordCount > 50,
-          logicalFlow: 70,
-          cohesiveness: 70
+          score: 70,
+          hasIntroduction: false,
+          hasConclusion: false,
+          logicalFlow: 0,
+          cohesiveness: 0,
         },
-        insights: [grammarFeedback]
+        insights: [speechFeedback],
       },
       bodyLanguage: {
         score: (posture + gestures + movement) / 3,
-        posture: posture,
-        gestures: gestures,
-        movement: movement,
+        posture,
+        gestures,
         facialExpressions: 70,
-        eyeContact: 75,
-        insights: [bodyLanguageFeedback]
+        eyeContact: 70,
+        movement,
+        insights: ["Body language analysis based on available data."],
       },
       confidence: {
-        score: (posture + 70 + 75) / 3, // Average of posture, voice modulation, and presence
+        score: Math.min(100, Math.max(0, 
+          // Base score
+          70
+          // Speaking rate impact
+          + (wordsPerMinute > 180 ? -10 : wordsPerMinute < 100 ? -5 : 5)
+          // Filler words impact
+          - Math.min(fillerCount, 10)
+        )),
         voiceModulation: 70,
-        pacing: wordsPerMinute > 120 ? 75 : 65,
-        presence: 75,
-        recovery: 80,
-        insights: [confidenceFeedback]
+        pacing: Math.min(100, Math.max(0, 70 + (wordsPerMinute > 180 ? -10 : wordsPerMinute < 100 ? -5 : 5))),
+        presence: 70,
+        recovery: 70,
+        insights: ["Confidence assessment based on speaking metrics."],
       },
-      overallScore: (speechScore * 0.4) + ((posture + gestures + movement) / 3 * 0.4) + (75 * 0.2),
-      summary: "Speech analysis complete. Your delivery showed some strengths and areas for improvement.",
-      topActionItems: suggestions
+      overallScore: Math.round(
+        (speechScore * 0.4) +
+        ((posture + gestures + movement) / 3 * 0.4) +
+        (70 * 0.2)
+      ),
+      summary: "Basic analysis completed with available metrics.",
+      topActionItems: [
+        'Practice speaking in front of a mirror for 5 minutes daily to improve your posture and eye contact',
+        'Record your next practice session on your phone and note moments when you use filler words',
+        'Before your next speech, write a clear outline with an introduction that states your main point in the first 30 seconds',
+        'Try the "pause technique" - replace filler words with deliberate 1-2 second pauses to seem more confident',
+        'Practice varying your speaking pace to emphasize important points and maintain audience engagement'
+      ],
     };
   }
 
